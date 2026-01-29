@@ -24,6 +24,10 @@ export interface Comment {
     tokenId: string;
     positionSize: string;
   }>;
+  // Additional identifiers for matching with top holders
+  userAddress?: string;
+  profileName?: string;
+  profilePseudonym?: string;
 }
 
 export interface TopHolder {

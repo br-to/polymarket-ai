@@ -145,7 +145,8 @@ export class PolymarketAPIClient {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/events/slug/${slug}`, {
+      const eventUrl = `${this.baseUrl}/events/slug/${slug}`;
+      const response = await fetch(eventUrl, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -156,7 +157,7 @@ export class PolymarketAPIClient {
 
       const event = await response.json();
       return event?.id || null;
-    } catch {
+    } catch (error) {
       return null;
     }
   }
@@ -166,18 +167,95 @@ export class PolymarketAPIClient {
    * Prioritizes holders with high reactions
    */
   async getComments(url: string, holdersOnly = false): Promise<Comment[]> {
-    const eventId = await this.getEventId(url);
-    if (!eventId) {
+    const slug = this.extractMarketSlug(url);
+    if (!slug) {
       return [];
     }
 
     try {
+      // First, get event to access markets
+      const eventResponse = await fetch(`${this.baseUrl}/events/slug/${slug}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!eventResponse.ok) {
+        return [];
+      }
+
+      const event = await eventResponse.json();
+      const eventId = event?.id;
+      const markets = event?.markets || [];
+
+      // Try multiple strategies to get comments
+      let allComments: any[] = [];
+
+      // Strategy 1: Try Event-level comments
+      const eventComments = await this.fetchCommentsByEntity("Event", eventId);
+      if (eventComments.length > 0) {
+        allComments = eventComments;
+      }
+
+      // Strategy 2: Try Market-level comments (if Event-level failed)
+      if (allComments.length === 0 && markets.length > 0) {
+        for (const market of markets.slice(0, 5)) { // Limit to first 5 markets
+          const marketId = market.id || market.marketId;
+          if (marketId) {
+            const marketComments = await this.fetchCommentsByEntity("market", marketId);
+            if (marketComments.length > 0) {
+              allComments = allComments.concat(marketComments);
+            }
+          }
+        }
+      }
+
+      // Strategy 3: Try without order parameter
+      if (allComments.length === 0) {
+        const paramsNoOrder = new URLSearchParams({
+          parent_entity_type: "Event",
+          parent_entity_id: eventId.toString(),
+          get_positions: "true",
+          limit: "100",
+          offset: "0",
+        });
+        const testResponse = await fetch(`${this.baseUrl}/comments?${paramsNoOrder}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (testResponse.ok) {
+          const testComments = await testResponse.json();
+          if (Array.isArray(testComments) && testComments.length > 0) {
+            allComments = testComments;
+          }
+        }
+      }
+
+      // Deduplicate comments by ID
+      const uniqueComments = Array.from(
+        new Map(allComments.map(c => [c.id, c])).values()
+      );
+
+      return this.mapComments(uniqueComments);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * Fetch comments by entity type and ID
+   */
+  private async fetchCommentsByEntity(
+    entityType: "Event" | "Series" | "market",
+    entityId: number | string,
+    holdersOnly = false
+  ): Promise<any[]> {
+    try {
       const params = new URLSearchParams({
-        parent_entity_type: "Event",
-        parent_entity_id: eventId.toString(),
+        parent_entity_type: entityType,
+        parent_entity_id: entityId.toString(),
         get_positions: "true",
         limit: "100",
-        offset: "0", // Required parameter for pagination
+        offset: "0",
         order: "reactionCount",
         ascending: "false",
       });
@@ -192,34 +270,46 @@ export class PolymarketAPIClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Comments API failed: ${response.statusText}`);
+        return [];
       }
 
       const comments = await response.json();
-
-      return comments.map((c: {
-        id: string;
-        body?: string;
-        createdAt?: string;
-        reactionCount?: number;
-        profile?: {
-          name?: string;
-          pseudonym?: string;
-          positions?: Array<{ tokenId: string; positionSize: string }>;
-        };
-      }) => ({
-        id: c.id,
-        author: c.profile?.name || c.profile?.pseudonym || "Anonymous",
-        content: c.body || "",
-        timestamp: c.createdAt || "",
-        reactionCount: c.reactionCount || 0,
-        positions: c.profile?.positions || [],
-        authorHoldings: this.calculateTotalHoldings(c.profile?.positions),
-      }));
+      return Array.isArray(comments) ? comments : [];
     } catch (error) {
-      console.error("Failed to fetch comments:", error);
       return [];
     }
+  }
+
+  /**
+   * Map API comment response to Comment interface
+   */
+  private mapComments(comments: any[]): Comment[] {
+    return comments.map((c: {
+      id: string;
+      body?: string;
+      createdAt?: string;
+      reactionCount?: number;
+      userAddress?: string;
+      profile?: {
+        name?: string;
+        pseudonym?: string;
+        proxyWallet?: string;
+        baseAddress?: string;
+        positions?: Array<{ tokenId: string; positionSize: string }>;
+      };
+    }) => ({
+      id: c.id,
+      author: c.profile?.name || c.profile?.pseudonym || "Anonymous",
+      content: c.body || "",
+      timestamp: c.createdAt || "",
+      reactionCount: c.reactionCount || 0,
+      positions: c.profile?.positions || [],
+      authorHoldings: this.calculateTotalHoldings(c.profile?.positions),
+      // Store additional identifiers for matching with top holders
+      userAddress: c.userAddress || c.profile?.proxyWallet || c.profile?.baseAddress,
+      profileName: c.profile?.name,
+      profilePseudonym: c.profile?.pseudonym,
+    }));
   }
 
   /**
@@ -327,7 +417,8 @@ export class PolymarketAPIClient {
         }
       }
 
-      return Array.from(holdersMap.values()).slice(0, 20);
+      const topHolders = Array.from(holdersMap.values()).slice(0, 20);
+      return topHolders;
     } catch (error) {
       console.error("Failed to fetch top holders:", error);
       return [];
