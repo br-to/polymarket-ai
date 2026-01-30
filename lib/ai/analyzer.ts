@@ -59,7 +59,15 @@ ${description}
     topHolders: TopHolder[],
     marketDescription?: string,
   ): Promise<
-    Omit<MarketAnalysis, "marketUrl" | "marketTitle" | "marketDescription" | "currentSituation" | "marketOptions" | "metadata">
+    Omit<
+      MarketAnalysis,
+      | "marketUrl"
+      | "marketTitle"
+      | "marketDescription"
+      | "currentSituation"
+      | "marketOptions"
+      | "metadata"
+    >
   > {
     // Weight comments by holder positions
     const weightedComments = this.promptBuilder.weightComments(
@@ -77,7 +85,12 @@ ${description}
 
     // If no comments available, use fallback immediately
     if (comments.length === 0) {
-      return await this.fallbackAnalysis(weightedComments, topHolders, marketOptions, marketDescription);
+      return await this.fallbackAnalysis(
+        weightedComments,
+        topHolders,
+        marketOptions,
+        marketDescription,
+      );
     }
 
     // Call Gemini API
@@ -133,7 +146,12 @@ ${description}
       }
 
       // Fallback: simple analysis without AI
-      return await this.fallbackAnalysis(weightedComments, topHolders, marketOptions, marketDescription);
+      return await this.fallbackAnalysis(
+        weightedComments,
+        topHolders,
+        marketOptions,
+        marketDescription,
+      );
     }
   }
 
@@ -145,12 +163,24 @@ ${description}
     topHolders: TopHolder[],
     _marketOptions: MarketOption[],
     marketDescription?: string,
-  ): Promise<Omit<MarketAnalysis, "marketUrl" | "marketTitle" | "marketDescription" | "currentSituation" | "marketOptions" | "metadata">> {
+  ): Promise<
+    Omit<
+      MarketAnalysis,
+      | "marketUrl"
+      | "marketTitle"
+      | "marketDescription"
+      | "currentSituation"
+      | "marketOptions"
+      | "metadata"
+    >
+  > {
     const whaleComments = weightedComments.filter((c) => c.isWhale).slice(0, 5);
 
     // Try to summarize description even in fallback
     const descriptionSummary = marketDescription
-      ? await this.summarizeDescription(marketDescription).catch(() => undefined)
+      ? await this.summarizeDescription(marketDescription).catch(
+          () => undefined,
+        )
       : undefined;
 
     // Check if we have any data to work with

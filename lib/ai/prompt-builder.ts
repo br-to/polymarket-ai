@@ -40,7 +40,9 @@ export class PromptBuilder {
         holder = holderMapByUsername.get(comment.profileName.toLowerCase());
       }
       if (!holder && comment.profilePseudonym) {
-        holder = holderMapByUsername.get(comment.profilePseudonym.toLowerCase());
+        holder = holderMapByUsername.get(
+          comment.profilePseudonym.toLowerCase(),
+        );
       }
       if (!holder && comment.author !== "Anonymous") {
         holder = holderMapByUsername.get(comment.author.toLowerCase());
@@ -52,7 +54,9 @@ export class PromptBuilder {
       }
 
       // Check if comment author has positions (from API response)
-      const hasDirectPositions = !!(comment.positions && comment.positions.length > 0);
+      const hasDirectPositions = !!(
+        comment.positions && comment.positions.length > 0
+      );
       const isWhale: boolean = !!holder || hasDirectPositions;
 
       // Calculate weight based on multiple factors

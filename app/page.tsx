@@ -1,8 +1,9 @@
 "use client";
 
-import { MarketInput } from "./components/MarketInput";
-import { MarketAnalysisDisplay } from "./components/MarketAnalysis";
 import { useAnalyzeMarket } from "@/hooks/useAnalyzeMarket";
+import { MarketAnalysisDisplay } from "./components/MarketAnalysis";
+import { MarketInput } from "./components/MarketInput";
+import { PopularMarkets } from "./components/PopularMarkets";
 
 export default function Home() {
   const mutation = useAnalyzeMarket();
@@ -20,8 +21,14 @@ export default function Home() {
           </p>
         </header>
 
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-8 max-w-2xl mx-auto">
-          <MarketInput onSubmit={mutation.mutate} loading={mutation.isPending} />
+        <div className="max-w-2xl mx-auto space-y-6 mb-8">
+          <div className="bg-white rounded-lg shadow-sm p-4">
+            <MarketInput
+              onSubmit={mutation.mutate}
+              loading={mutation.isPending}
+            />
+          </div>
+          <PopularMarkets onSelect={mutation.mutate} />
         </div>
 
         {mutation.isError && (
