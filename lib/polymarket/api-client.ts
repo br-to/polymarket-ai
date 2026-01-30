@@ -1,4 +1,9 @@
-import type { MarketInfo, MarketOption, Comment, TopHolder } from "@/types/market";
+import type {
+  MarketInfo,
+  MarketOption,
+  Comment,
+  TopHolder,
+} from "@/types/market";
 
 const POLYMARKET_API_URL = "https://gamma-api.polymarket.com";
 
@@ -7,6 +12,52 @@ export class PolymarketAPIClient {
 
   constructor(baseUrl: string = POLYMARKET_API_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  /**
+   * Fetch popular/trending events (by volume), active and not closed
+   */
+  async getPopularEvents(
+    limit = 5,
+  ): Promise<
+    Array<{ slug: string; title: string; url: string; volume: number }>
+  > {
+    try {
+      const params = new URLSearchParams({
+        limit: String(limit),
+        offset: "0",
+        order: "volume",
+        ascending: "false",
+        closed: "false",
+        active: "true",
+      });
+      const response = await fetch(`${this.baseUrl}/events?${params}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const events = await response.json();
+      if (!Array.isArray(events)) {
+        return [];
+      }
+
+      return events
+        .filter((e: { slug?: string; closed?: boolean }) => e.slug && !e.closed)
+        .slice(0, limit)
+        .map((e: { slug: string; title?: string; volume?: number }) => ({
+          slug: e.slug,
+          title: e.title || "Untitled",
+          url: `https://polymarket.com/event/${e.slug}`,
+          volume: typeof e.volume === "number" ? e.volume : 0,
+        }));
+    } catch (error) {
+      console.error("Failed to fetch popular events:", error);
+      return [];
+    }
   }
 
   /**
@@ -198,10 +249,14 @@ export class PolymarketAPIClient {
 
       // Strategy 2: Try Market-level comments (if Event-level failed)
       if (allComments.length === 0 && markets.length > 0) {
-        for (const market of markets.slice(0, 5)) { // Limit to first 5 markets
+        for (const market of markets.slice(0, 5)) {
+          // Limit to first 5 markets
           const marketId = market.id || market.marketId;
           if (marketId) {
-            const marketComments = await this.fetchCommentsByEntity("market", marketId);
+            const marketComments = await this.fetchCommentsByEntity(
+              "market",
+              marketId,
+            );
             if (marketComments.length > 0) {
               allComments = allComments.concat(marketComments);
             }
@@ -218,10 +273,13 @@ export class PolymarketAPIClient {
           limit: "100",
           offset: "0",
         });
-        const testResponse = await fetch(`${this.baseUrl}/comments?${paramsNoOrder}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
+        const testResponse = await fetch(
+          `${this.baseUrl}/comments?${paramsNoOrder}`,
+          {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          },
+        );
         if (testResponse.ok) {
           const testComments = await testResponse.json();
           if (Array.isArray(testComments) && testComments.length > 0) {
@@ -232,7 +290,7 @@ export class PolymarketAPIClient {
 
       // Deduplicate comments by ID
       const uniqueComments = Array.from(
-        new Map(allComments.map(c => [c.id, c])).values()
+        new Map(allComments.map((c) => [c.id, c])).values(),
       );
 
       return this.mapComments(uniqueComments);
@@ -247,7 +305,7 @@ export class PolymarketAPIClient {
   private async fetchCommentsByEntity(
     entityType: "Event" | "Series" | "market",
     entityId: number | string,
-    holdersOnly = false
+    holdersOnly = false,
   ): Promise<any[]> {
     try {
       const params = new URLSearchParams({
@@ -284,32 +342,35 @@ export class PolymarketAPIClient {
    * Map API comment response to Comment interface
    */
   private mapComments(comments: any[]): Comment[] {
-    return comments.map((c: {
-      id: string;
-      body?: string;
-      createdAt?: string;
-      reactionCount?: number;
-      userAddress?: string;
-      profile?: {
-        name?: string;
-        pseudonym?: string;
-        proxyWallet?: string;
-        baseAddress?: string;
-        positions?: Array<{ tokenId: string; positionSize: string }>;
-      };
-    }) => ({
-      id: c.id,
-      author: c.profile?.name || c.profile?.pseudonym || "Anonymous",
-      content: c.body || "",
-      timestamp: c.createdAt || "",
-      reactionCount: c.reactionCount || 0,
-      positions: c.profile?.positions || [],
-      authorHoldings: this.calculateTotalHoldings(c.profile?.positions),
-      // Store additional identifiers for matching with top holders
-      userAddress: c.userAddress || c.profile?.proxyWallet || c.profile?.baseAddress,
-      profileName: c.profile?.name,
-      profilePseudonym: c.profile?.pseudonym,
-    }));
+    return comments.map(
+      (c: {
+        id: string;
+        body?: string;
+        createdAt?: string;
+        reactionCount?: number;
+        userAddress?: string;
+        profile?: {
+          name?: string;
+          pseudonym?: string;
+          proxyWallet?: string;
+          baseAddress?: string;
+          positions?: Array<{ tokenId: string; positionSize: string }>;
+        };
+      }) => ({
+        id: c.id,
+        author: c.profile?.name || c.profile?.pseudonym || "Anonymous",
+        content: c.body || "",
+        timestamp: c.createdAt || "",
+        reactionCount: c.reactionCount || 0,
+        positions: c.profile?.positions || [],
+        authorHoldings: this.calculateTotalHoldings(c.profile?.positions),
+        // Store additional identifiers for matching with top holders
+        userAddress:
+          c.userAddress || c.profile?.proxyWallet || c.profile?.baseAddress,
+        profileName: c.profile?.name,
+        profilePseudonym: c.profile?.pseudonym,
+      }),
+    );
   }
 
   /**
@@ -332,7 +393,7 @@ export class PolymarketAPIClient {
    * Calculate total holdings from positions
    */
   private calculateTotalHoldings(
-    positions?: Array<{ tokenId: string; positionSize: string }>
+    positions?: Array<{ tokenId: string; positionSize: string }>,
   ): string | undefined {
     if (!positions || positions.length === 0) {
       return undefined;
