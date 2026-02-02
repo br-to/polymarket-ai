@@ -13,8 +13,53 @@ function formatVolume(volume: number): string {
   return `$${volume.toFixed(0)}`;
 }
 
-function ElectionMarketCard({ market }: { market: ElectionMarket }) {
-  // Find the top option (highest price)
+type CardVariant = "ranking" | "seats" | "party" | "other";
+
+const variantStyles: Record<
+  CardVariant,
+  {
+    card: string;
+    bar: string;
+    percent: string;
+  }
+> = {
+  ranking: {
+    card: "bg-gradient-to-br from-white to-indigo-50/30 hover:shadow-indigo-100",
+    bar: "bg-indigo-500",
+    percent: "text-indigo-600",
+  },
+  seats: {
+    card: "bg-gradient-to-br from-white to-emerald-50/30 hover:shadow-emerald-100",
+    bar: "bg-emerald-500",
+    percent: "text-emerald-600",
+  },
+  party: {
+    card: "bg-gradient-to-br from-white to-amber-50/30 hover:shadow-amber-100",
+    bar: "bg-amber-500",
+    percent: "text-amber-600",
+  },
+  other: {
+    card: "bg-gradient-to-br from-white to-violet-50/30 hover:shadow-violet-100",
+    bar: "bg-violet-500",
+    percent: "text-violet-600",
+  },
+};
+
+const sectionHeaderStyles: Record<CardVariant, string> = {
+  ranking: "border-l-4 border-indigo-500 pl-3 text-indigo-800",
+  seats: "border-l-4 border-emerald-500 pl-3 text-emerald-800",
+  party: "border-l-4 border-amber-500 pl-3 text-amber-800",
+  other: "border-l-4 border-violet-500 pl-3 text-violet-800",
+};
+
+function ElectionMarketCard({
+  market,
+  variant = "other",
+}: {
+  market: ElectionMarket;
+  variant?: CardVariant;
+}) {
+  const styles = variantStyles[variant];
   const topOption = market.options
     ? market.options.reduce((prev, current) =>
         current.price > prev.price ? current : prev
@@ -26,7 +71,7 @@ function ElectionMarketCard({ market }: { market: ElectionMarket }) {
       href={market.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+      className={`block rounded-lg border border-gray-200 p-4 shadow-sm transition-all hover:shadow-md ${styles.card}`}
     >
       <div className="mb-2">
         <h3 className="text-base font-semibold text-gray-900 line-clamp-2">
@@ -40,13 +85,13 @@ function ElectionMarketCard({ market }: { market: ElectionMarket }) {
             <span className="text-sm font-medium text-gray-700">
               {topOption.name}
             </span>
-            <span className="text-lg font-bold text-blue-600">
+            <span className={`text-lg font-bold ${styles.percent}`}>
               {topOption.price.toFixed(1)}%
             </span>
           </div>
           <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-blue-600 transition-all"
+              className={`h-full ${styles.bar} transition-all rounded-full`}
               style={{ width: `${topOption.price}%` }}
             />
           </div>
@@ -139,7 +184,9 @@ export function ElectionMarkets() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="mb-4 text-2xl font-bold text-gray-900">日本の選挙市場</h2>
+        <h2 className="mb-4 text-2xl font-bold text-gray-900">
+          日本の選挙市場
+        </h2>
         <p className="text-sm text-gray-600 mb-6">
           日本の選挙関連の予測市場を表示しています。各市場をクリックするとPolymarketで詳細を確認できます。
         </p>
@@ -147,12 +194,18 @@ export function ElectionMarkets() {
 
       {marketsByType.ranking.length > 0 && (
         <section>
-          <h3 className="mb-3 text-lg font-semibold text-gray-800">
+          <h3
+            className={`mb-3 text-lg font-semibold ${sectionHeaderStyles.ranking}`}
+          >
             順位予測
           </h3>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {marketsByType.ranking.map((market) => (
-              <ElectionMarketCard key={market.slug} market={market} />
+              <ElectionMarketCard
+                key={market.slug}
+                market={market}
+                variant="ranking"
+              />
             ))}
           </div>
         </section>
@@ -160,12 +213,18 @@ export function ElectionMarkets() {
 
       {marketsByType.seats.length > 0 && (
         <section>
-          <h3 className="mb-3 text-lg font-semibold text-gray-800">
+          <h3
+            className={`mb-3 text-lg font-semibold ${sectionHeaderStyles.seats}`}
+          >
             議席予測
           </h3>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {marketsByType.seats.map((market) => (
-              <ElectionMarketCard key={market.slug} market={market} />
+              <ElectionMarketCard
+                key={market.slug}
+                market={market}
+                variant="seats"
+              />
             ))}
           </div>
         </section>
@@ -173,12 +232,18 @@ export function ElectionMarkets() {
 
       {marketsByType.party.length > 0 && (
         <section>
-          <h3 className="mb-3 text-lg font-semibold text-gray-800">
+          <h3
+            className={`mb-3 text-lg font-semibold ${sectionHeaderStyles.party}`}
+          >
             政党関連
           </h3>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {marketsByType.party.map((market) => (
-              <ElectionMarketCard key={market.slug} market={market} />
+              <ElectionMarketCard
+                key={market.slug}
+                market={market}
+                variant="party"
+              />
             ))}
           </div>
         </section>
@@ -186,12 +251,18 @@ export function ElectionMarkets() {
 
       {marketsByType.other.length > 0 && (
         <section>
-          <h3 className="mb-3 text-lg font-semibold text-gray-800">
+          <h3
+            className={`mb-3 text-lg font-semibold ${sectionHeaderStyles.other}`}
+          >
             その他
           </h3>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {marketsByType.other.map((market) => (
-              <ElectionMarketCard key={market.slug} market={market} />
+              <ElectionMarketCard
+                key={market.slug}
+                market={market}
+                variant="other"
+              />
             ))}
           </div>
         </section>
