@@ -61,6 +61,83 @@ export class PolymarketAPIClient {
   }
 
   /**
+   * Fetch Japanese election-related markets by searching for "japanese-election"
+   * Uses the same search query as Polymarket's search page (https://polymarket.com/search?_q=japanese-election)
+   */
+  async getElectionMarkets(
+    limit = 30,
+  ): Promise<
+    Array<{ slug: string; title: string; url: string; volume: number; options?: Array<{ name: string; price: number }> }>
+  > {
+    try {
+      // Use public-search endpoint with q parameter (matches Polymarket's search page)
+      const searchParams = new URLSearchParams({
+        q: "japanese-election",
+        limit_per_type: String(limit),
+        page: "1",
+        events_status: "active",
+      });
+
+      const searchResponse = await fetch(`${this.baseUrl}/public-search?${searchParams}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!searchResponse.ok) {
+        throw new Error(`API request failed: ${searchResponse.statusText}`);
+      }
+
+      const searchData = await searchResponse.json();
+
+      // Search endpoint returns structured data with events array
+      let events: any[] = [];
+      if (searchData?.events && Array.isArray(searchData.events)) {
+        events = searchData.events;
+      } else if (Array.isArray(searchData)) {
+        events = searchData;
+      }
+
+      if (events.length === 0) {
+        return [];
+      }
+
+      // Filter and map events
+      const electionEvents = events
+        .filter((e: { slug?: string; closed?: boolean }) => e.slug && !e.closed)
+        .slice(0, limit)
+        .map(async (e: { slug: string; title?: string; volume?: number }) => {
+          // Fetch market options for each event
+          let options: Array<{ name: string; price: number }> = [];
+          try {
+            const marketOptions = await this.getMarketOptions(
+              `https://polymarket.com/event/${e.slug}`
+            );
+            options = marketOptions.map((opt) => ({
+              name: opt.name,
+              price: opt.price,
+            }));
+          } catch (error) {
+            // If fetching options fails, continue without them
+            console.error(`Failed to fetch options for ${e.slug}:`, error);
+          }
+
+          return {
+            slug: e.slug,
+            title: e.title || "Untitled",
+            url: `https://polymarket.com/event/${e.slug}`,
+            volume: typeof e.volume === "number" ? e.volume : 0,
+            options,
+          };
+        });
+
+      return Promise.all(electionEvents);
+    } catch (error) {
+      console.error("Failed to fetch election markets:", error);
+      return [];
+    }
+  }
+
+  /**
    * Extract market slug from URL
    */
   extractMarketSlug(url: string): string | null {
