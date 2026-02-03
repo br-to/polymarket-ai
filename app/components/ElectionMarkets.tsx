@@ -4,24 +4,39 @@ import { useElectionMarkets, type ElectionMarket } from "@/hooks/useElectionMark
 import Link from "next/link";
 
 function formatVolume(volume: number): string {
-  if (volume >= 1_000_000) {
-    return `$${(volume / 1_000_000).toFixed(1)}M`;
+  return `${Math.round(volume).toLocaleString()}ドル`;
+}
+
+// Yes/No のどちらが優勢かを判定（選択肢名で）
+function getLeadingYesNo(optionName: string): "yes" | "no" | null {
+  const n = optionName.trim().toLowerCase();
+  if (n === "yes" || n === "はい") return "yes";
+  if (n === "no" || n === "いいえ") return "no";
+  return null;
+}
+
+// 政党ごとのセクションID（タイトルに含まれるキーワードで判定）
+const PARTY_SECTIONS: Array<{ id: string; label: string; keywords: string[] }> = [
+  { id: "ldp", label: "自民党", keywords: ["自民党"] },
+  { id: "cra", label: "中道改革連合", keywords: ["中道改革連合"] },
+  { id: "jip", label: "日本維新の会", keywords: ["日本維新の会", "維新"] },
+  { id: "dpfp", label: "国民民主党", keywords: ["国民民主党"] },
+  { id: "reiwa", label: "れいわ新選組", keywords: ["れいわ新選組", "れいわ"] },
+];
+
+function getPartySectionKey(title: string): string | null {
+  for (const { id, keywords } of PARTY_SECTIONS) {
+    if (keywords.some((k) => title.includes(k))) return id;
   }
-  if (volume >= 1_000) {
-    return `$${(volume / 1_000).toFixed(1)}K`;
-  }
-  return `$${volume.toFixed(0)}`;
+  return null;
 }
 
 type CardVariant = "ranking" | "seats" | "party" | "other";
+type OutcomeStyle = "yes" | "no" | "neutral"; // Yes優勢 / No優勢 / その他
 
 const variantStyles: Record<
   CardVariant,
-  {
-    card: string;
-    bar: string;
-    percent: string;
-  }
+  { card: string; bar: string; percent: string }
 > = {
   ranking: {
     card: "bg-gradient-to-br from-white to-indigo-50/30 hover:shadow-indigo-100",
@@ -45,11 +60,24 @@ const variantStyles: Record<
   },
 };
 
-const sectionHeaderStyles: Record<CardVariant, string> = {
+// Yes/No 用の意味のある色（Yes=緑・No=赤）
+const outcomeStyles: Record<OutcomeStyle, { bar: string; percent: string }> = {
+  yes: { bar: "bg-emerald-500", percent: "text-emerald-600" },
+  no: { bar: "bg-rose-500", percent: "text-rose-600" },
+  neutral: { bar: "", percent: "" }, // variant にフォールバック
+};
+
+const sectionHeaderStyles: Record<string, string> = {
   ranking: "border-l-4 border-indigo-500 pl-3 text-indigo-800",
   seats: "border-l-4 border-emerald-500 pl-3 text-emerald-800",
   party: "border-l-4 border-amber-500 pl-3 text-amber-800",
   other: "border-l-4 border-violet-500 pl-3 text-violet-800",
+  ldp: "border-l-4 border-red-600 pl-3 text-red-800",
+  cra: "border-l-4 border-blue-600 pl-3 text-blue-800",
+  jip: "border-l-4 border-orange-600 pl-3 text-orange-800",
+  dpfp: "border-l-4 border-teal-600 pl-3 text-teal-800",
+  reiwa: "border-l-4 border-pink-600 pl-3 text-pink-800",
+  multi: "border-l-4 border-slate-600 pl-3 text-slate-800",
 };
 
 function ElectionMarketCard({
@@ -59,19 +87,32 @@ function ElectionMarketCard({
   market: ElectionMarket;
   variant?: CardVariant;
 }) {
-  const styles = variantStyles[variant];
   const topOption = market.options
     ? market.options.reduce((prev, current) =>
         current.price > prev.price ? current : prev
       )
     : null;
 
+  const leadingYesNo = topOption ? getLeadingYesNo(topOption.name) : null;
+  const outcomeStyle: OutcomeStyle =
+    leadingYesNo === "yes" ? "yes" : leadingYesNo === "no" ? "no" : "neutral";
+
+  const variantStyle = variantStyles[variant];
+  const barClass =
+    outcomeStyle === "neutral"
+      ? variantStyle.bar
+      : outcomeStyles[outcomeStyle].bar;
+  const percentClass =
+    outcomeStyle === "neutral"
+      ? variantStyle.percent
+      : outcomeStyles[outcomeStyle].percent;
+
   return (
     <Link
       href={market.url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`block rounded-lg border border-gray-200 p-4 shadow-sm transition-all hover:shadow-md ${styles.card}`}
+      className={`block rounded-lg border border-gray-200 p-4 shadow-sm transition-all hover:shadow-md ${variantStyle.card}`}
     >
       <div className="mb-2">
         <h3 className="text-base font-semibold text-gray-900 line-clamp-2">
@@ -85,13 +126,13 @@ function ElectionMarketCard({
             <span className="text-sm font-medium text-gray-700">
               {topOption.name}
             </span>
-            <span className={`text-lg font-bold ${styles.percent}`}>
+            <span className={`text-lg font-bold ${percentClass}`}>
               {topOption.price.toFixed(1)}%
             </span>
           </div>
           <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
             <div
-              className={`h-full ${styles.bar} transition-all rounded-full`}
+              className={`h-full ${barClass} transition-all rounded-full`}
               style={{ width: `${topOption.price}%` }}
             />
           </div>
@@ -145,41 +186,43 @@ export function ElectionMarkets() {
     );
   }
 
-  // Group markets by type (タイトルはAPIで日本語に変換済み)
-  const marketsByType = {
-    ranking: markets.filter(
-      (m) =>
-        m.title.includes("勝者") ||
-        m.title.includes("1位") ||
-        m.title.includes("2位") ||
-        m.title.includes("3位") ||
-        m.title.includes("過半数を獲得する？")
-    ),
-    seats: markets.filter(
-      (m) =>
-        (m.title.includes("議席") || m.title.includes("獲得議席")) &&
-        !m.title.includes("勝者") &&
-        !m.title.includes("過半数を獲得する？") &&
-        !m.title.includes("議席を減らす")
-    ),
-    party: markets.filter(
-      (m) =>
-        m.title.includes("与党") ||
-        m.title.includes("議席を減らす")
-    ),
-    other: markets.filter(
-      (m) =>
-        !m.title.includes("勝者") &&
-        !m.title.includes("1位") &&
-        !m.title.includes("2位") &&
-        !m.title.includes("3位") &&
-        !m.title.includes("過半数を獲得する？") &&
-        !m.title.includes("議席数") &&
-        !m.title.includes("獲得議席") &&
-        !m.title.includes("与党") &&
-        !m.title.includes("議席を減らす")
-    ),
-  };
+  // 政党ごと + 順位・与党・その他 でグループ（タイトルはAPIで日本語に変換済み）
+  const isRanking = (m: ElectionMarket) =>
+    m.title.includes("勝者") ||
+    m.title.includes("1位") ||
+    m.title.includes("2位") ||
+    m.title.includes("3位") ||
+    m.title.includes("過半数を獲得する？");
+  const isMultiParty = (m: ElectionMarket) =>
+    m.title.includes("与党") || m.title.includes("議席を減らす");
+
+  const marketsByParty = new Map<string, ElectionMarket[]>();
+  for (const { id, label } of PARTY_SECTIONS) {
+    marketsByParty.set(id, []);
+  }
+  marketsByParty.set("ranking", []);
+  marketsByParty.set("multi", []);
+  marketsByParty.set("other", []);
+
+  for (const m of markets) {
+    const partyKey = getPartySectionKey(m.title);
+    if (partyKey) {
+      marketsByParty.get(partyKey)!.push(m);
+    } else if (isRanking(m)) {
+      marketsByParty.get("ranking")!.push(m);
+    } else if (isMultiParty(m)) {
+      marketsByParty.get("multi")!.push(m);
+    } else {
+      marketsByParty.get("other")!.push(m);
+    }
+  }
+
+  const partySectionOrder: Array<{ key: string; label: string; variant: CardVariant }> = [
+    ...PARTY_SECTIONS.map((p) => ({ key: p.id, label: p.label, variant: "seats" as CardVariant })),
+    { key: "ranking", label: "順位予測", variant: "ranking" },
+    { key: "multi", label: "与党・議席を減らす", variant: "party" },
+    { key: "other", label: "その他", variant: "other" },
+  ];
 
   return (
     <div className="space-y-8">
@@ -189,84 +232,33 @@ export function ElectionMarkets() {
         </h2>
         <p className="text-sm text-gray-600 mb-6">
           日本の選挙関連の予測市場を表示しています。各市場をクリックするとPolymarketで詳細を確認できます。
+          <span className="mt-2 block text-xs text-gray-500">
+            バーが緑＝Yes優勢・赤＝No優勢（Yes/Noの市場のみ）
+          </span>
         </p>
       </div>
 
-      {marketsByType.ranking.length > 0 && (
-        <section>
-          <h3
-            className={`mb-3 text-lg font-semibold ${sectionHeaderStyles.ranking}`}
-          >
-            順位予測
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {marketsByType.ranking.map((market) => (
-              <ElectionMarketCard
-                key={market.slug}
-                market={market}
-                variant="ranking"
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {marketsByType.seats.length > 0 && (
-        <section>
-          <h3
-            className={`mb-3 text-lg font-semibold ${sectionHeaderStyles.seats}`}
-          >
-            議席予測
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {marketsByType.seats.map((market) => (
-              <ElectionMarketCard
-                key={market.slug}
-                market={market}
-                variant="seats"
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {marketsByType.party.length > 0 && (
-        <section>
-          <h3
-            className={`mb-3 text-lg font-semibold ${sectionHeaderStyles.party}`}
-          >
-            政党関連
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {marketsByType.party.map((market) => (
-              <ElectionMarketCard
-                key={market.slug}
-                market={market}
-                variant="party"
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {marketsByType.other.length > 0 && (
-        <section>
-          <h3
-            className={`mb-3 text-lg font-semibold ${sectionHeaderStyles.other}`}
-          >
-            その他
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {marketsByType.other.map((market) => (
-              <ElectionMarketCard
-                key={market.slug}
-                market={market}
-                variant="other"
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {partySectionOrder.map(({ key, label, variant }) => {
+        const list = marketsByParty.get(key) ?? [];
+        if (list.length === 0) return null;
+        const headerStyle = sectionHeaderStyles[key] ?? sectionHeaderStyles.other;
+        return (
+          <section key={key}>
+            <h3 className={`mb-3 text-lg font-semibold ${headerStyle}`}>
+              {label}
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {list.map((market) => (
+                <ElectionMarketCard
+                  key={market.slug}
+                  market={market}
+                  variant={variant}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
