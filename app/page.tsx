@@ -43,12 +43,16 @@ export default function Home() {
         )}
 
         {mutation.isPending && (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4" />
-            <p className="text-gray-600">市場データを取得し、AIで分析中...</p>
-            <p className="text-sm text-gray-500 mt-2">
-              この処理には数分かかる場合があります
-            </p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-500/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-xl p-10 text-center max-w-sm mx-4">
+              <div className="inline-block animate-spin rounded-full h-14 w-14 border-4 border-gray-200 border-t-blue-600 mb-5" />
+              <p className="text-lg font-semibold text-gray-800">
+                市場データを取得し、AIで分析中...
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                この処理には数分かかる場合があります
+              </p>
+            </div>
           </div>
         )}
 
