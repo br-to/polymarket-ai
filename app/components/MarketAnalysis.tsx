@@ -1,5 +1,6 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
 import type { MarketAnalysis } from "@/types/market";
 
 interface MarketAnalysisProps {
@@ -34,9 +35,9 @@ export function MarketAnalysisDisplay({ analysis }: MarketAnalysisProps) {
             <h2 className="text-sm font-semibold text-gray-700 mb-2">
               解決条件（要約）
             </h2>
-            <p className="text-sm text-gray-600 whitespace-pre-wrap">
-              {marketDescriptionSummary}
-            </p>
+            <div className="text-sm text-gray-600 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:list-inside [&_ul]:space-y-1 [&_p]:mb-2 last:[&_p]:mb-0">
+              <ReactMarkdown>{marketDescriptionSummary}</ReactMarkdown>
+            </div>
           </div>
         )}
         <a
