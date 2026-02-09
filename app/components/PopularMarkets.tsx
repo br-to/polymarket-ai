@@ -46,7 +46,7 @@ export function PopularMarkets({ onSelect }: PopularMarketsProps) {
             <button
               type="button"
               onClick={() => onSelect(market.url)}
-              className="flex w-full items-start justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2.5 text-left text-sm transition-colors hover:border-blue-300 hover:bg-blue-50/50 focus:outline-2 focus:outline-blue-600 focus:-outline-offset-1"
+              className="flex w-full items-start justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2.5 text-left text-sm transition-colors hover:border-blue-300 hover:bg-blue-50/50 focus:outline-2 focus:outline-blue-600 focus:-outline-offset-1 cursor-pointer"
             >
               <span className="line-clamp-2 flex-1 font-medium text-gray-900">
                 {market.title}
