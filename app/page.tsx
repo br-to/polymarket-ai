@@ -4,7 +4,6 @@ import { useAnalyzeMarket } from "@/hooks/useAnalyzeMarket";
 import { MarketAnalysisDisplay } from "./components/MarketAnalysis";
 import { MarketInput } from "./components/MarketInput";
 import { PopularMarkets } from "./components/PopularMarkets";
-import Link from "next/link";
 
 export default function Home() {
   const mutation = useAnalyzeMarket();
@@ -13,14 +12,6 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         <header className="text-center mb-12">
-          <div className="flex justify-end mb-4">
-            <Link
-              href="/election"
-              className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium"
-            >
-              選挙特化ページ →
-            </Link>
-          </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Polymarket市場分析
           </h1>
