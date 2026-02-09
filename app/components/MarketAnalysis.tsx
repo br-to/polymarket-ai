@@ -33,7 +33,7 @@ export function MarketAnalysisDisplay({ analysis }: MarketAnalysisProps) {
         {marketDescriptionSummary && (
           <div className="mb-3 p-3 bg-gray-50 rounded border border-gray-100">
             <h2 className="text-sm font-semibold text-gray-700 mb-2">
-              解決条件（要約）
+              勝利条件（要約）
             </h2>
             <div className="text-sm text-gray-600 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:list-inside [&_ul]:space-y-1 [&_p]:mb-2 last:[&_p]:mb-0">
               <ReactMarkdown>{marketDescriptionSummary}</ReactMarkdown>
@@ -51,7 +51,7 @@ export function MarketAnalysisDisplay({ analysis }: MarketAnalysisProps) {
       </div>
 
       <div className="p-4 bg-white rounded-lg border border-gray-200">
-        <h2 className="text-lg font-bold mb-3">現在の価格</h2>
+        <h2 className="text-lg font-bold mb-3">予測確率</h2>
         <div className="space-y-3">
           {marketOptions
             .sort((a, b) => b.price - a.price)
