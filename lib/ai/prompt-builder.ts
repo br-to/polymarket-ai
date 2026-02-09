@@ -121,7 +121,22 @@ export class PromptBuilder {
       ? `1強状態: ${dominantOption.name}が${dominantOption.price.toFixed(1)}%を占めています`
       : "複数の選択肢が競合している状態です";
 
+    const today = new Date().toLocaleDateString("ja-JP", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
     const prompt = `あなたはPolymarket（予測市場）の市場分析専門家です。以下の情報を基に、市場の状況を分析してください。
+
+## 現在の日付
+${today}
+
+## 重要な注意事項
+- 必ず上記の日付時点での最新情報に基づいて分析してください
+- コメントやホルダー情報に記載されていない事実を勝手に推測・捏造しないでください
+- 確証のない情報には「〜の可能性がある」等の表現を使ってください
+- 古い情報（例: 既に終了した選挙、退任済みの人物の役職など）を現在の事実として述べないでください
 
 ## 市場情報
 - 市場タイトル: ${marketTitle}

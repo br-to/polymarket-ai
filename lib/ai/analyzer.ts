@@ -27,7 +27,18 @@ export class MarketAnalyzer {
     }
 
     try {
-      const prompt = `以下のPolymarket市場の解決条件を、重要なポイントを3-5箇条で簡潔にまとめてください。日本語で回答してください。
+      const today = new Date().toLocaleDateString("ja-JP", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      const prompt = `現在の日付: ${today}
+
+以下のPolymarket市場の解決条件を、重要なポイントを3-5箇条で簡潔にまとめてください。
+- 日本語で回答してください
+- 解決条件の原文に書かれている内容のみをまとめてください
+- 原文にない情報を追加したり、推測を加えたりしないでください
 
 ${description}
 
