@@ -63,10 +63,10 @@ export function MarketList({ markets, onSelect, loading }: MarketListProps) {
               <span>流動性 {formatVolume(market.liquidity)}</span>
             )}
             {market.commentCount > 0 && (
-              <span>💬 {market.commentCount}</span>
+              <span>{market.commentCount}コメント</span>
             )}
             {market.marketCount > 1 && (
-              <span>📊 {market.marketCount}市場</span>
+              <span>{market.marketCount}市場</span>
             )}
           </div>
         </button>
