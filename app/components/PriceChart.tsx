@@ -67,7 +67,7 @@ export function PriceChart({ data, height = 200 }: PriceChartProps) {
           className={`text-sm font-medium ${isUp ? "text-green-600" : "text-red-600"}`}
         >
           {isUp ? "+" : ""}
-          {(change * 100).toFixed(1)}pp
+          {(change * 100).toFixed(1)}%
         </span>
       </div>
       <svg
