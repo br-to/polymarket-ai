@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { useAnalyzeMarket } from "@/hooks/useAnalyzeMarket";
 import { useSearchMarkets } from "@/hooks/useSearchMarkets";
+import { useMarketDetail } from "@/hooks/useMarketDetail";
 import { MarketAnalysisDisplay } from "./components/MarketAnalysis";
 import { TopicSearch } from "./components/TopicSearch";
 import { MarketList } from "./components/MarketList";
 import { PopularMarkets } from "./components/PopularMarkets";
+import { PriceChart } from "./components/PriceChart";
+import { OrderBook } from "./components/OrderBook";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
@@ -14,6 +17,7 @@ export default function Home() {
 
   const searchResult = useSearchMarkets(searchQuery);
   const analyzeMutation = useAnalyzeMarket();
+  const marketDetail = useMarketDetail(selectedUrl);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -61,7 +65,7 @@ export default function Home() {
             />
           )}
 
-          {/* 分析結果 */}
+          {/* 市場詳細 */}
           {selectedUrl && (
             <div className="space-y-4">
               <button
@@ -71,9 +75,37 @@ export default function Home() {
               >
                 ← 検索結果に戻る
               </button>
+
+              {/* 価格チャート */}
+              {marketDetail.data && (
+                <div className="p-4 bg-white rounded-lg border border-gray-200">
+                  <h2 className="text-lg font-bold mb-3">価格推移</h2>
+                  <PriceChart data={marketDetail.data.priceHistory} />
+                </div>
+              )}
+
+              {/* オーダーブック */}
+              {marketDetail.data && (
+                <div className="p-4 bg-white rounded-lg border border-gray-200">
+                  <h2 className="text-lg font-bold mb-3">オーダーブック</h2>
+                  <OrderBook
+                    bids={marketDetail.data.orderBook.bids}
+                    asks={marketDetail.data.orderBook.asks}
+                    lastTradePrice={marketDetail.data.orderBook.lastTradePrice}
+                  />
+                </div>
+              )}
+
+              {marketDetail.isLoading && (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  市場データを読み込み中...
+                </div>
+              )}
+
+              {/* AI分析 */}
               {analyzeMutation.isPending && (
                 <div className="text-center py-8 text-gray-500">
-                  分析中...
+                  AI分析中...
                 </div>
               )}
               {analyzeMutation.isError && (

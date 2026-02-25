@@ -637,4 +637,120 @@ export class PolymarketAPIClient {
       return [];
     }
   }
+
+  /**
+   * Get clobTokenIds for an event's markets
+   */
+  async getClobTokenIds(
+    url: string,
+  ): Promise<Array<{ question: string; tokenId: string; outcome: string }>> {
+    const slug = this.extractMarketSlug(url);
+    if (!slug) return [];
+
+    try {
+      const response = await fetch(`${this.baseUrl}/events/slug/${slug}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) return [];
+
+      const event = await response.json();
+      const tokens: Array<{ question: string; tokenId: string; outcome: string }> = [];
+
+      for (const market of event?.markets || []) {
+        const clobTokenIds = market.clobTokenIds
+          ? typeof market.clobTokenIds === "string"
+            ? JSON.parse(market.clobTokenIds)
+            : market.clobTokenIds
+          : [];
+        const outcomes = market.outcomes
+          ? typeof market.outcomes === "string"
+            ? JSON.parse(market.outcomes)
+            : market.outcomes
+          : ["Yes", "No"];
+
+        if (clobTokenIds[0]) {
+          tokens.push({
+            question: market.groupItemTitle || market.question || "",
+            tokenId: clobTokenIds[0],
+            outcome: outcomes[0] || "Yes",
+          });
+        }
+      }
+
+      return tokens;
+    } catch (error) {
+      console.error("Failed to get clob token IDs:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch price history from CLOB API
+   */
+  async getPriceHistory(
+    tokenId: string,
+    interval: "1d" | "1w" | "max" = "1w",
+    fidelity = 50,
+  ): Promise<Array<{ t: number; p: number }>> {
+    try {
+      const params = new URLSearchParams({
+        market: tokenId,
+        interval,
+        fidelity: String(fidelity),
+      });
+
+      const response = await fetch(
+        `https://clob.polymarket.com/prices-history?${params}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+
+      if (!response.ok) return [];
+
+      const data = await response.json();
+      return data?.history || [];
+    } catch (error) {
+      console.error("Failed to fetch price history:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch order book from CLOB API
+   */
+  async getOrderBook(
+    tokenId: string,
+  ): Promise<{
+    bids: Array<{ price: string; size: string }>;
+    asks: Array<{ price: string; size: string }>;
+    lastTradePrice: string;
+  }> {
+    try {
+      const response = await fetch(
+        `https://clob.polymarket.com/book?token_id=${tokenId}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+
+      if (!response.ok) {
+        return { bids: [], asks: [], lastTradePrice: "0" };
+      }
+
+      const data = await response.json();
+      return {
+        bids: (data.bids || []).slice(0, 10),
+        asks: (data.asks || []).slice(0, 10),
+        lastTradePrice: data.last_trade_price || "0",
+      };
+    } catch (error) {
+      console.error("Failed to fetch order book:", error);
+      return { bids: [], asks: [], lastTradePrice: "0" };
+    }
+  }
 }
