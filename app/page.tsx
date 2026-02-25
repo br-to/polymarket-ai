@@ -1,12 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import { useAnalyzeMarket } from "@/hooks/useAnalyzeMarket";
+import { useSearchMarkets } from "@/hooks/useSearchMarkets";
 import { MarketAnalysisDisplay } from "./components/MarketAnalysis";
-import { MarketInput } from "./components/MarketInput";
+import { TopicSearch } from "./components/TopicSearch";
+import { MarketList } from "./components/MarketList";
 import { PopularMarkets } from "./components/PopularMarkets";
 
 export default function Home() {
-  const mutation = useAnalyzeMarket();
+  const [searchQuery, setSearchQuery] = useState<string | null>(null);
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+
+  const searchResult = useSearchMarkets(searchQuery);
+  const analyzeMutation = useAnalyzeMarket();
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setSelectedUrl(null);
+    analyzeMutation.reset();
+  };
+
+  const handleSelectMarket = (url: string) => {
+    setSelectedUrl(url);
+    analyzeMutation.mutate(url);
+  };
+
+  const handleBack = () => {
+    setSelectedUrl(null);
+    analyzeMutation.reset();
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -15,52 +38,58 @@ export default function Home() {
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Polymarket市場分析
           </h1>
-          <p className="text-sm text-gray-600 max-w-2xl mx-auto text-start">
-            Polymarketの市場URLを入力すると、コメント欄から価格変動の理由をAIが分析し、
-            大口ホルダーの意見や反対意見、トリガー条件をまとめて表示します。
+          <p className="text-sm text-gray-600 max-w-2xl mx-auto">
+            話題を入力すると関連する予測市場を表示し、
+            コメントや大口ホルダーの情報からAIが価格の理由を分析します。
           </p>
         </header>
 
         <div className="max-w-2xl mx-auto space-y-6 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-4">
-            <MarketInput
-              onSubmit={mutation.mutate}
-              loading={mutation.isPending}
+            <TopicSearch
+              onSearch={handleSearch}
+              loading={searchResult.isLoading}
             />
           </div>
-          <PopularMarkets onSelect={mutation.mutate} />
-        </div>
 
-        {mutation.isError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
-            <h2 className="text-lg font-semibold text-red-900 mb-2">エラー</h2>
-            <p className="text-red-700">
-              {mutation.error instanceof Error
-                ? mutation.error.message
-                : "予期しないエラーが発生しました"}
-            </p>
-          </div>
-        )}
+          {/* 検索結果の市場一覧 */}
+          {searchQuery && !selectedUrl && (
+            <MarketList
+              markets={searchResult.data?.markets || []}
+              onSelect={handleSelectMarket}
+              loading={searchResult.isLoading}
+            />
+          )}
 
-        {mutation.isPending && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-500/60 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-xl p-10 text-center max-w-sm mx-4">
-              <div className="inline-block animate-spin rounded-full h-14 w-14 border-4 border-gray-200 border-t-blue-600 mb-5" />
-              <p className="text-lg font-semibold text-gray-800">
-                市場データを取得し、AIで分析中...
-              </p>
-              <p className="text-sm text-gray-500 mt-2">
-                この処理には数分かかる場合があります
-              </p>
+          {/* 分析結果 */}
+          {selectedUrl && (
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
+              >
+                ← 検索結果に戻る
+              </button>
+              {analyzeMutation.isPending && (
+                <div className="text-center py-8 text-gray-500">
+                  分析中...
+                </div>
+              )}
+              {analyzeMutation.isError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+                  エラー: {analyzeMutation.error?.message || "分析に失敗しました"}
+                </div>
+              )}
+              {analyzeMutation.data && (
+                <MarketAnalysisDisplay analysis={analyzeMutation.data} />
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {mutation.isSuccess && (
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <MarketAnalysisDisplay analysis={mutation.data} />
-          </div>
-        )}
+          {/* 検索前は人気市場を表示 */}
+          {!searchQuery && <PopularMarkets onSelect={handleSelectMarket} />}
+        </div>
       </div>
     </div>
   );

@@ -138,6 +138,81 @@ export class PolymarketAPIClient {
   }
 
   /**
+   * Search markets by topic/keyword
+   */
+  async searchMarkets(
+    query: string,
+    limit = 10,
+  ): Promise<
+    Array<{
+      slug: string;
+      title: string;
+      url: string;
+      volume: number;
+      liquidity: number;
+      yesPrice: number;
+      endDate: string | null;
+      commentCount: number;
+      marketCount: number;
+    }>
+  > {
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        limit_per_type: String(limit),
+        page: "1",
+        events_status: "active",
+      });
+
+      const response = await fetch(
+        `${this.baseUrl}/public-search?${params}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      let events: any[] = [];
+      if (data?.events && Array.isArray(data.events)) {
+        events = data.events;
+      } else if (Array.isArray(data)) {
+        events = data;
+      }
+
+      return events
+        .filter((e: any) => e.slug && !e.closed)
+        .map((e: any) => {
+          const marketData = e.markets?.[0];
+          const outcomePrices = marketData?.outcomePrices
+            ? JSON.parse(marketData.outcomePrices)
+            : [];
+          const yesPrice = parseFloat(outcomePrices[0] || "0") * 100;
+
+          return {
+            slug: e.slug,
+            title: e.title || "Untitled",
+            url: `https://polymarket.com/event/${e.slug}`,
+            volume: typeof e.volume === "number" ? e.volume : 0,
+            liquidity: typeof e.liquidity === "number" ? e.liquidity : 0,
+            yesPrice,
+            endDate: e.endDate || null,
+            commentCount: e.commentCount || 0,
+            marketCount: e.markets?.length || 0,
+          };
+        });
+    } catch (error) {
+      console.error("Failed to search markets:", error);
+      return [];
+    }
+  }
+
+  /**
    * Extract market slug from URL
    */
   extractMarketSlug(url: string): string | null {
